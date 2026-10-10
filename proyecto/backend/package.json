@@ -6,12 +6,18 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "test:e2e": "node test/e2e.js",
+    "auditar": "node test/auditoria-huerfanos.js",
+    "purgar": "node scripts/purgar-huerfanos.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
     "sqlite3": "^6.0.1"
   },
   "devDependencies": {
