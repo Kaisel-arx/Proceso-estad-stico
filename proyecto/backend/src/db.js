@@ -12,14 +12,23 @@ require('dotenv').config();
  *   UTC, la misma forma que entregaba SQLite, de modo que el frontend no cambia.
  *
  * Variables de entorno (.env): DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT.
+ * Cada una acepta el alias MYSQLx que inyectan ciertos servicios en la nube
+ * (el plugin de Railway usa MYSQLHOST/MYSQLUSER/...), y si faltan ambas se
+ * cae a un valor local razonable para desarrollo:
+ *
+ *   DB_HOST     -> MYSQLHOST     -> 'localhost'
+ *   DB_USER     -> MYSQLUSER     -> 'root'
+ *   DB_PASSWORD -> MYSQLPASSWORD -> ''
+ *   DB_NAME     -> MYSQLDATABASE -> 'statlab_db'
+ *   DB_PORT     -> MYSQLPORT     -> 3306
  */
 
 const CONFIG = {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD ?? '',
-  database: process.env.DB_NAME,
-  port: Number(process.env.DB_PORT) || 3306,
+  host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
+  user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
+  password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
+  database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'statlab_db',
+  port: Number(process.env.DB_PORT || process.env.MYSQLPORT) || 3306,
   // Pool: conexiones reutilizadas y reposicionadas al morir una.
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_POOL) || 10,

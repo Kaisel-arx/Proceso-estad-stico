@@ -11,11 +11,12 @@ const authRoutes = require('./routes/auth.routes');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Origenes permitidos: en produccion (Railway) CORS_ORIGIN lleva el dominio
-// publico del frontend (Vercel), p. ej. https://statlab.vercel.app; se aceptan
-// varios separados por coma. Sin definir, solo se permite el entorno local de
-// desarrollo (Vite en 5173/4173 y el propio backend en 3001).
-const ORIGENES_DEV = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3001'];
+// Origenes permitidos por CORS: en produccion (Railway) CORS_ORIGIN lleva el
+// dominio publico del frontend (Vercel), p. ej. https://statlab.vercel.app; se
+// aceptan varios separados por coma y queda restringido a esa lista. Sin
+// definir (pruebas, desarrollo local) se refleja cualquier origen para no
+// bloquear el frontend, con un aviso en el arranque para que en produccion no
+// pase inadvertido.
 const ORIGENES_PERMITIDOS = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map((o) => o.trim().replace(/\/$/, ''))
@@ -23,8 +24,12 @@ const ORIGENES_PERMITIDOS = (process.env.CORS_ORIGIN || '')
 
 const opcionesCors =
   ORIGENES_PERMITIDOS.length > 0
-    ? { origin: ORIGENES_PERMITIDOS, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }
-    : { origin: ORIGENES_DEV };
+    ? {
+        origin: ORIGENES_PERMITIDOS,
+        methods: ['GET', 'POST', 'PUT', 'DELETE'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+      }
+    : { origin: true };
 
 // Middlewares
 app.use(cors(opcionesCors));
@@ -78,7 +83,10 @@ async function iniciar() {
   if (ORIGENES_PERMITIDOS.length > 0) {
     console.log(`CORS: origenes permitidos -> ${ORIGENES_PERMITIDOS.join(', ')}`);
   } else {
-    console.log('CORS: modo desarrollo (origenes locales); define CORS_ORIGIN en produccion');
+    console.warn(
+      'CORS: CORS_ORIGIN no definido, se acepta cualquier origen. Define CORS_ORIGIN con el ' +
+        'dominio del frontend en produccion para restringirlo.'
+    );
   }
 
   // Sin host explicito Node escucha en todas las interfaces (0.0.0.0), que es
