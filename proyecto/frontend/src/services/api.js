@@ -1,4 +1,8 @@
-const API_URL = 'http://localhost:3001/api';
+// URL base de la API: en produccion (Vercel) la define VITE_API_URL en el
+// dashboard de variables de entorno apuntando al backend (Railway), p. ej.
+// https://statlab-api.up.railway.app/api. En desarrollo local se usa el
+// servidor de Vite como respaldo.
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 const CLAVE_TOKEN = 'token';
 
 // La sesion vive en localStorage: el token viaja en Authorization en cada peticion
@@ -18,12 +22,14 @@ export function borrarToken() {
 /**
  * Unica puerta a la API: agrega la cabecera de sesion, serializa el cuerpo y
  * convierte cualquier respuesta no-2xx en una excepcion con el mensaje del backend.
+ * `token` permite usar una sesion que aun no se ha guardado (la verificacion del
+ * codigo de recuperacion devuelve una sesion que se entrega en mano al contexto).
  */
-async function pedir(ruta, { metodo = 'GET', cuerpo, sinToken = false } = {}) {
+async function pedir(ruta, { metodo = 'GET', cuerpo, sinToken = false, token: tokenExplicito } = {}) {
   const headers = {};
   if (cuerpo !== undefined) headers['Content-Type'] = 'application/json';
 
-  const token = sinToken ? null : obtenerToken();
+  const token = tokenExplicito ?? (sinToken ? null : obtenerToken());
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_URL}${ruta}`, {
@@ -49,6 +55,24 @@ export function registrar(datos) {
 
 export function iniciarSesion(datos) {
   return pedir('/auth/login', { metodo: 'POST', cuerpo: datos, sinToken: true });
+}
+
+// --- Recuperacion de contrasena ---
+
+// Paso 1: pide que se envie el codigo al correo registrado.
+export function solicitarCodigoRecuperacion(email) {
+  return pedir('/auth/forgot-password', { metodo: 'POST', cuerpo: { email }, sinToken: true });
+}
+
+// Paso 2: valida el codigo y devuelve la sesion completa { token, usuario }.
+export function verificarCodigoRecuperacion(datos) {
+  return pedir('/auth/verify-code', { metodo: 'POST', cuerpo: datos, sinToken: true });
+}
+
+// Paso 3 (opcional): cambia la clave con la sesion que acaba de entregar el codigo
+// y devuelve otra sesion nueva, ya sin el alcance de recuperacion.
+export function restablecerContrasena(password, token) {
+  return pedir('/auth/restablecer-password', { metodo: 'POST', cuerpo: { password }, token });
 }
 
 // Revalida el token guardado contra el servidor. Si expiro, tira 401 y el

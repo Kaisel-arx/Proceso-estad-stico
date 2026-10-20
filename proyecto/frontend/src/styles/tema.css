@@ -1,0 +1,230 @@
+/*
+  StatLab — Sistema de diseño: variables de tema (claro / oscuro).
+
+  Paleta maestra:
+    #0E1D21  base profunda / fondo nocturno principal
+    #122E34  superficies (tarjetas, contenedores, navbar)
+    #622347  acento elegante (plum)
+    #677E8A  slate: bordes sutiles, iconos, lineas de graficas
+    #ABAFB5  textos secundarios, etiquetas, subtitulos
+    #E0B4B2  acento calido y acciones primarias (rose)
+
+  Modo oscuro = la paleta en su tono nocturno natural.
+  Modo claro  = inversion inteligente: fondos claros derivados de #ABAFB5/blanco,
+                tinta en #0E1D21/#122E34, misma identidad sin romper la armonia.
+
+  Los componentes no guardan colores literales: referencian estas variables con
+  var(--...). Cambiar el tema es un solo atributo en <html> y ninguna vista tiene
+  que volver a renderizarse ni recalcular nada.
+*/
+
+:root {
+  color-scheme: light;
+
+  /* Superficies */
+  --bg: #f2f4f5;
+  --superficie: #ffffff;
+  --superficie-2: #f4f6f7;
+  --superficie-3: #e9edef;
+  --superficie-aux: #f3eef0;
+  --superficie-total: #e4eaec;
+
+  /* Tinta y bordes */
+  --borde: #d9dee0;
+  --borde-fuerte: #677e8a;
+  --texto: #0e1d21;
+  --texto-tenue: #4c5c64;
+  --texto-suave: #677e8a;
+
+  /* Sombras */
+  --sombra-tarjeta: 0 1px 2px rgba(14, 29, 33, 0.05), 0 14px 30px -16px rgba(14, 29, 33, 0.28);
+  --sombra-tarjeta-alta: 0 2px 5px rgba(14, 29, 33, 0.08), 0 16px 34px -14px rgba(14, 29, 33, 0.3);
+  --sombra-panel: 0 1px 2px rgba(14, 29, 33, 0.06), 0 4px 12px rgba(14, 29, 33, 0.05);
+
+  /* Acentos */
+  --acento: #622347;
+  --acento-suave: #f4e9ee;
+  --calido: #e0b4b2;
+  --calido-hover: #d3a09e;
+  --calido-tenue: #f7ecec;
+
+  /* Acentos fijos de la paleta maestra: mismos valores en claro y oscuro,
+     porque son el color de las tarjetas del bento y no deben virar con el tema. */
+  --acento-acero: #677e8a;
+  --acento-ciruela: #622347;
+  --acento-rosa: #e0b4b2;
+
+  /* Acciones */
+  --btn-primario-bg: #e0b4b2;
+  --btn-primario-bg-hover: #d3a09e;
+  --btn-primario-texto: #0e1d21;
+  --btn-primario-borde: #c99896;
+  --btn-secundario-bg: #ffffff;
+  --btn-secundario-texto: #0e1d21;
+  --btn-secundario-borde: #677e8a;
+  --btn-peligro-texto: #a33a44;
+  --btn-peligro-bg: #faf0f0;
+
+  /* Estados activos (pastillas de navegacion, atajos, pestanas) */
+  --chip-activo-bg: #622347;
+  --chip-activo-texto: #f6e7ee;
+  --chip-activo-borde: #4d1b38;
+
+  /* Cabeceras de tarjeta: siempre en degradado profundo, con tinta clara */
+  --cabecera-grad: linear-gradient(135deg, #622347 0%, #3a1730 55%, #122e34 100%);
+  --cabecera-texto: #f6efef;
+  --cabecera-meta-bg: rgba(255, 255, 255, 0.14);
+  --cabecera-meta-borde: rgba(255, 255, 255, 0.28);
+
+  /* Tabla de frecuencias */
+  --tabla-th: #622347;
+  --tabla-th-combinada: #4a1a36;
+  --tabla-th-borde: rgba(0, 0, 0, 0.22);
+
+  /* Graficas */
+  --rejilla: #e2e7e9;
+  --trazo: #0e1d21;
+  --grafica-barra: #677e8a;
+  --grafica-barra-alta: #8496a0;
+  --grafica-barra-hover: #56707c;
+  --grafica-borde: #0e1d21;
+  --grafica-serie: #622347;
+  --grafica-acento: #a65d6e;
+  --grafica-texto: #4c5c64;
+  --grafica-valor: #0e1d21;
+
+  /* Estados */
+  --alerta-fondo: #f7eef1;
+  --alerta-borde: #d9b8c6;
+  --alerta-texto: #622347;
+  --aviso: #8a6a1f;
+  --error: #a33a44;
+  --exito: #2f7a55;
+  --foco: #622347;
+
+  --foco-anillo: rgba(98, 35, 71, 0.35);
+}
+
+:root[data-tema='oscuro'] {
+  color-scheme: dark;
+
+  --bg: #0e1d21;
+  --superficie: #122e34;
+  --superficie-2: #17383f;
+  --superficie-3: #1c434b;
+  --superficie-aux: #1a2f3a;
+  --superficie-total: #1f4a53;
+
+  --borde: rgba(103, 126, 138, 0.38);
+  --borde-fuerte: #677e8a;
+  --texto: #e8edee;
+  --texto-tenue: #abafb5;
+  --texto-suave: #8d9aa1;
+
+  --sombra-tarjeta: 0 1px 2px rgba(0, 0, 0, 0.45), 0 16px 32px -14px rgba(0, 0, 0, 0.8);
+  --sombra-tarjeta-alta: 0 2px 6px rgba(0, 0, 0, 0.5), 0 18px 36px rgba(0, 0, 0, 0.55);
+  --sombra-panel: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 14px rgba(0, 0, 0, 0.35);
+
+  --acento: #e0b4b2;
+  --acento-suave: rgba(224, 180, 178, 0.12);
+  --calido: #e0b4b2;
+  --calido-hover: #eacfd0;
+  --calido-tenue: rgba(224, 180, 178, 0.09);
+
+  --acento-acero: #677e8a;
+  --acento-ciruela: #622347;
+  --acento-rosa: #e0b4b2;
+
+  --btn-primario-bg: #e0b4b2;
+  --btn-primario-bg-hover: #eacfd0;
+  --btn-primario-texto: #0e1d21;
+  --btn-primario-borde: #c99896;
+  --btn-secundario-bg: #17383f;
+  --btn-secundario-texto: #e8edee;
+  --btn-secundario-borde: #677e8a;
+  --btn-peligro-texto: #e89aa0;
+  --btn-peligro-bg: rgba(163, 58, 68, 0.14);
+
+  --chip-activo-bg: #622347;
+  --chip-activo-texto: #f2d9e4;
+  --chip-activo-borde: #8a3a63;
+
+  --cabecera-grad: linear-gradient(135deg, #622347 0%, #3a1730 55%, #122e34 100%);
+  --cabecera-texto: #f6efef;
+  --cabecera-meta-bg: rgba(255, 255, 255, 0.12);
+  --cabecera-meta-borde: rgba(255, 255, 255, 0.24);
+
+  --tabla-th: #622347;
+  --tabla-th-combinada: #4a1a36;
+  --tabla-th-borde: rgba(0, 0, 0, 0.3);
+
+  --rejilla: #23454d;
+  --trazo: #abafb5;
+  --grafica-barra: #677e8a;
+  --grafica-barra-alta: #8496a0;
+  --grafica-barra-hover: #7a95a1;
+  --grafica-borde: #0b1b20;
+  --grafica-serie: #e0b4b2;
+  --grafica-acento: #c286a8;
+  --grafica-texto: #abafb5;
+  --grafica-valor: #e8edee;
+
+  --alerta-fondo: rgba(98, 35, 71, 0.22);
+  --alerta-borde: #8a3a63;
+  --alerta-texto: #eec6d4;
+  --aviso: #d9b36a;
+  --error: #e89aa0;
+  --exito: #7fbfa0;
+  --foco: #e0b4b2;
+
+  --foco-anillo: rgba(224, 180, 178, 0.35);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--texto);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--acento-suave);
+}
+
+/*
+  Clases para el SVG de las graficas. Los atributos stroke=/fill= de SVG no
+  admiten var(), pero el style y las hojas de estilo si, de ahi estas reglas.
+*/
+.trazo {
+  stroke: var(--trazo);
+}
+
+.rejilla-grafica {
+  stroke: var(--rejilla);
+}
+
+.trazo-barra {
+  stroke: var(--grafica-borde);
+}

@@ -6,18 +6,6 @@ import MenuPrincipal from './components/MenuPrincipal';
 import HistorialTrabajos from './components/HistorialTrabajos';
 import IngresoDatos from './components/IngresoDatos';
 
-const estilos = {
-  app: { minHeight: '100vh', background: 'var(--bg)' },
-  principal: { maxWidth: 980, margin: '0 auto', padding: '2rem 1.25rem 4rem' },
-  arranque: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'var(--texto-tenue)',
-  },
-};
-
 /**
  * Enruta la aplicacion entre las tres vistas segun la sesion:
  * sin usuario -> Login; con usuario -> menu, historial o trabajo.
@@ -28,7 +16,13 @@ function App() {
   const [vista, setVista] = useState('menu');
   const [lote, setLote] = useState(null);
 
-  if (cargando) return <p style={estilos.arranque}>Cargando sesión…</p>;
+  if (cargando)
+    return (
+      <p className="arranque">
+        <span className="punto-carga" aria-hidden="true" />
+        Cargando sesión…
+      </p>
+    );
   if (!usuario) return <Login />;
 
   const irMenu = () => setVista('menu');
@@ -49,10 +43,12 @@ function App() {
   const claveTrabajo = lote ? `lote-${lote.id}` : 'nuevo';
 
   return (
-    <div style={estilos.app}>
+    <div className="aplicacion">
       <Navbar vista={vista} onMenu={irMenu} onHistorial={irHistorial} onNuevo={abrirNuevo} />
 
-      <main style={estilos.principal}>
+      {/* El area de trabajo es un dashboard de ancho completo: el main toma
+          todo el ancho disponible en esa vista. */}
+      <main className={`aplicacion-principal${vista === 'trabajo' ? ' aplicacion-principal--amplia' : ''}`}>
         {vista === 'menu' && <MenuPrincipal onNuevo={abrirNuevo} onHistorial={irHistorial} />}
         {vista === 'historial' && <HistorialTrabajos onCargar={abrirLote} onVolver={irMenu} />}
         {vista === 'trabajo' && <IngresoDatos key={claveTrabajo} lote={lote} />}

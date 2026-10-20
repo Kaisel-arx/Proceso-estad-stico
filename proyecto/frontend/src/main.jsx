@@ -4,6 +4,7 @@ import App from './App.jsx';
 import { TemaProvider } from './context/TemaContext.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import './styles/tema.css';
+import './styles/ui.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

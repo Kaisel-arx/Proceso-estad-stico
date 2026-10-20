@@ -1,0 +1,1329 @@
+/*
+  StatLab — Biblioteca de componentes visuales compartidos.
+
+  Todas las clases leen las variables de tema.css, de modo que el acabado es
+  identico en modo claro y oscuro y un cambio de paleta se propaga a toda la
+  aplicacion desde un solo archivo.
+*/
+
+/* ---------- Contenedores ---------- */
+
+.aplicacion {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.aplicacion-principal {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 4rem;
+}
+
+/* El area de trabajo es un dashboard: ocupa todo el ancho disponible para que
+   las columnas del bento y la rejilla de graficas no queden apretadas. */
+.aplicacion-principal--amplia {
+  max-width: 1640px;
+  padding: 1.5rem 1.5rem 4rem;
+}
+
+.arranque {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  color: var(--texto-tenue);
+  font-size: 0.9rem;
+}
+
+/* Punto de carga animado para la sesion */
+.punto-carga {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--calido);
+  animation: pulso-carga 900ms ease-in-out infinite;
+}
+
+@keyframes pulso-carga {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+/* ---------- Tarjeta ---------- */
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  box-shadow: var(--sombra-tarjeta);
+  overflow: hidden;
+  transition: box-shadow 180ms ease-out, transform 180ms ease-out, border-color 180ms ease;
+}
+
+/* Microinteraccion sutil: la tarjeta se eleva al acercarse el cursor. Las
+   tarjetas de acento conservan su barra lateral (border-left fijo). */
+.tarjeta:hover {
+  border-color: var(--borde-fuerte);
+  box-shadow: var(--sombra-tarjeta-alta);
+}
+
+.tarjeta-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  padding: 0.85rem 1.15rem;
+  background: var(--cabecera-grad);
+  color: var(--cabecera-texto);
+}
+
+.tarjeta-titulo {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.tarjeta-meta {
+  font-size: 0.7rem;
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  background: var(--cabecera-meta-bg);
+  border: 1px solid var(--cabecera-meta-borde);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  white-space: nowrap;
+}
+
+/* Acciones de la cabecera de tarjeta (exportar, herramientas) */
+.tarjeta-herramientas {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tarjeta-cuerpo {
+  padding: 1.15rem;
+}
+
+/* ---------- Encabezados de vista ---------- */
+
+.vista-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
+}
+
+.vista-titulo {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--texto);
+}
+
+.etiqueta-seccion {
+  margin: 0 0 0.65rem 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.separador {
+  height: 1px;
+  background: var(--borde);
+  margin: 1.15rem 0;
+  border: 0;
+}
+
+/* ---------- Botones ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 120ms ease,
+    box-shadow 150ms ease;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primario {
+  background: var(--btn-primario-bg);
+  color: var(--btn-primario-texto);
+  border-color: var(--btn-primario-borde);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.btn-primario:hover:not(:disabled) {
+  background: var(--btn-primario-bg-hover);
+}
+
+.btn-secundario {
+  background: var(--btn-secundario-bg);
+  color: var(--btn-secundario-texto);
+  border-color: var(--btn-secundario-borde);
+}
+
+.btn-secundario:hover:not(:disabled) {
+  background: var(--superficie-3);
+}
+
+.btn-fantasma {
+  background: transparent;
+  color: var(--texto-tenue);
+  border-color: var(--borde);
+}
+
+.btn-fantasma:hover:not(:disabled) {
+  background: var(--superficie-2);
+  color: var(--texto);
+}
+
+.btn-peligro {
+  background: var(--btn-peligro-bg);
+  color: var(--btn-peligro-texto);
+  border-color: transparent;
+}
+
+.btn-peligro:hover:not(:disabled) {
+  border-color: var(--error);
+}
+
+.btn-compacto {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+/* Boton de herramienta sobre cabecera oscura (exportar PDF) */
+.btn-herramienta {
+  background: rgba(255, 255, 255, 0.14);
+  color: #f6efef;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.btn-herramienta:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+/* ---------- Campos de formulario ---------- */
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.campo-etiqueta {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--texto-tenue);
+}
+
+.campo-nota {
+  font-size: 0.7rem;
+  color: var(--texto-suave);
+}
+
+.entrada {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.58rem 0.7rem;
+  font-size: 0.9rem;
+  color: var(--texto);
+  background: var(--superficie-2);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 10px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.entrada::placeholder {
+  color: var(--texto-suave);
+}
+
+.entrada:focus {
+  outline: none;
+  border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--foco-anillo);
+}
+
+.entrada-mono {
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  resize: vertical;
+}
+
+.entrada-envoltura {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Boton de ojo para visibilidad de contrasena */
+.boton-ojo {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem;
+  color: var(--texto-tenue);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.boton-ojo:hover {
+  color: var(--texto);
+  background: var(--superficie-3);
+}
+
+/* ---------- Pastillas / chips ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: var(--superficie-2);
+  color: var(--texto-tenue);
+  white-space: nowrap;
+}
+
+.chip-calido {
+  background: var(--calido-tenue);
+  border-color: var(--calido);
+  color: var(--acento);
+}
+
+:root[data-tema='oscuro'] .chip-calido {
+  color: var(--calido);
+}
+
+/* ---------- Alertas / mensajes ---------- */
+
+.alerta {
+  margin: 0 0 0.85rem 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--borde);
+  background: var(--superficie-2);
+  color: var(--texto-tenue);
+  font-size: 0.83rem;
+}
+
+.alerta-error {
+  border-color: var(--error);
+  color: var(--error);
+  background: var(--btn-peligro-bg);
+}
+
+.alerta-exito {
+  border-color: var(--exito);
+  color: var(--exito);
+}
+
+.alerta-aviso {
+  border-color: var(--alerta-borde);
+  background: var(--alerta-fondo);
+  color: var(--alerta-texto);
+}
+
+/* ---------- Banner de notificacion (recuperacion de contrasena) ---------- */
+
+/* Mensaje flotante tipo banner con icono y entrada animada: se usa en el flujo
+   de recuperacion para error (correo no registrado, fallo SMTP) y exito (codigo
+   enviado). Los colores salen de las variables del tema. */
+.banner-notificacion {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  line-height: 1.45;
+  animation: banner-entrada 220ms ease-out;
+}
+
+.banner-notificacion span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.banner-icono {
+  flex: 0 0 auto;
+  margin-top: 0.12rem;
+}
+
+.banner-notificacion--error {
+  border: 1px solid var(--error);
+  background: var(--btn-peligro-bg);
+  color: var(--error);
+}
+
+.banner-notificacion--exito {
+  border: 1px solid var(--exito);
+  background: var(--superficie-2);
+  color: var(--exito);
+}
+
+@keyframes banner-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-notificacion {
+    animation: none;
+  }
+}
+
+/* ---------- Spinner de carga ---------- */
+
+/* Anillo giratorio para botones en proceso (enviar codigo, verificar, etc.).
+   El color usa el acento calido en modo claro y se adapta en oscuro via
+   currentColor del boton padre. */
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid rgba(14, 29, 33, 0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: girar 650ms linear infinite;
+}
+
+.btn-primario .spinner {
+  border-color: rgba(14, 29, 33, 0.3);
+  border-top-color: var(--btn-primario-texto);
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 1.6s;
+  }
+}
+
+/* ---------- Medidor de dato (valor numerico) ---------- */
+
+.dato {
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dato-vacio {
+  border-style: dashed;
+  background: var(--superficie-3);
+}
+
+.dato-etiqueta {
+  font-size: 0.7rem;
+  color: var(--texto-suave);
+  letter-spacing: 0.03em;
+}
+
+.dato-valor {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--texto);
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.dato-valor-vacio {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+  font-family: inherit;
+}
+
+.dato-nota {
+  font-size: 0.65rem;
+  color: var(--texto-suave);
+  line-height: 1.35;
+}
+
+/* Icono en pastilla de color para tarjetas de medidas */
+.icono-pastilla {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: 7px;
+}
+
+/* ---------- Estado vacio ---------- */
+
+.vacio {
+  padding: 2.2rem 1rem;
+  text-align: center;
+  color: var(--texto-tenue);
+  background: var(--superficie);
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: 14px;
+  font-size: 0.9rem;
+}
+
+/* ---------- Login (split-card) ---------- */
+
+.login-tarjeta {
+  width: 100%;
+  max-width: 880px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 20px;
+  box-shadow: var(--sombra-tarjeta);
+  overflow: hidden;
+}
+
+/* Registro: un solo panel con el formulario centrado, sin ilustracion */
+.login-tarjeta--registro {
+  grid-template-columns: 1fr;
+  max-width: 440px;
+}
+
+@media (max-width: 780px) {
+  .login-tarjeta {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+  }
+
+  .login-arte {
+    display: none;
+  }
+}
+
+/* ---------- Dashboard ---------- */
+
+.saludo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.5rem 1.6rem;
+  margin-bottom: 1.25rem;
+  background: var(--cabecera-grad);
+  color: var(--cabecera-texto);
+  border-radius: 16px;
+  box-shadow: var(--sombra-tarjeta);
+}
+
+.saludo-titulo {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.saludo-subtitulo {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #d7c4cb;
+  max-width: 46ch;
+}
+
+.acceso-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.acceso-tarjeta {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 1.25rem 1.3rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 16px;
+  box-shadow: var(--sombra-tarjeta);
+  cursor: pointer;
+  color: var(--texto);
+  transition: box-shadow 180ms ease-out, transform 180ms ease-out, border-color 180ms ease;
+}
+
+.acceso-tarjeta:hover {
+  box-shadow: var(--sombra-tarjeta-alta);
+  transform: translateY(-2px);
+  border-color: var(--borde-fuerte);
+}
+
+.acceso-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 0.7rem;
+  border-radius: 11px;
+  background: var(--calido-tenue);
+  border: 1px solid var(--calido);
+  color: var(--acento);
+}
+
+:root[data-tema='oscuro'] .acceso-icono {
+  color: var(--calido);
+}
+
+.acceso-titulo {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.acceso-texto {
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--texto-tenue);
+  line-height: 1.55;
+}
+
+/* ---------- Historial ---------- */
+
+.historial-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.historial-fila {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  box-shadow: var(--sombra-panel);
+  overflow: hidden;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.historial-fila:hover {
+  border-color: var(--borde-fuerte);
+  box-shadow: var(--sombra-tarjeta);
+}
+
+.historial-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.05rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--texto);
+}
+
+.historial-nombre {
+  display: block;
+  margin: 0 0 0.2rem 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.historial-meta {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--texto-suave);
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+}
+
+/* ---------- Guia "Como usar" ---------- */
+
+.guia-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.guia-paso {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  padding: 1.15rem 1.2rem;
+  box-shadow: var(--sombra-panel);
+}
+
+.guia-numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 0.6rem;
+  border-radius: 8px;
+  background: var(--chip-activo-bg);
+  color: var(--chip-activo-texto);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.guia-titulo {
+  margin: 0 0 0.35rem 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.guia-texto {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--texto-tenue);
+  line-height: 1.6;
+}
+
+.guia-texto code {
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  font-size: 0.78rem;
+  padding: 0.08rem 0.35rem;
+  border-radius: 5px;
+  background: var(--superficie-3);
+  border: 1px solid var(--borde);
+  color: var(--acento);
+}
+
+:root[data-tema='oscuro'] .guia-texto code {
+  color: var(--calido);
+}
+
+/* ---------- Area de trabajo interactiva ---------- */
+
+/* Tooltip fijo de los encabezados de la tabla: formula arriba, sustitucion real
+   con los valores de la tabla debajo. position: fixed lo saca del overflow
+   horizontal del contenedor de la tabla. */
+.formula-tooltip {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 330px;
+  padding: 0.55rem 0.7rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 10px;
+  box-shadow: var(--sombra-tarjeta-alta);
+  pointer-events: none;
+  transform: translate(-50%, 10px);
+}
+
+.formula-tooltip-formula {
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.formula-tooltip-ejemplo {
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--texto-suave);
+}
+
+/* Cabeceras con pista: cursor de ayuda y realce suave al acercarse. */
+.th-pista {
+  cursor: help;
+}
+
+.th-pista:hover {
+  filter: brightness(1.12);
+}
+
+/* Hover sincronizado: la fila bajo el cursor (o la que resaltan las graficas)
+   se ilumina en acento y marca el borde izquierdo con la barra de la paleta. */
+.frec-celda {
+  background: var(--superficie);
+}
+
+.frec-fila-par .frec-celda {
+  background: var(--superficie-3);
+}
+
+.frec-fila-activa .frec-celda {
+  background: var(--acento-suave);
+}
+
+.frec-celda-aux.frec-celda {
+  background: var(--superficie-aux);
+}
+
+.frec-fila-par .frec-celda-aux.frec-celda {
+  background: var(--superficie-3);
+}
+
+.frec-fila-activa .frec-celda-aux.frec-celda {
+  background: var(--acento-suave);
+}
+
+.frec-fila-activa .frec-celda:first-child {
+  box-shadow: inset 3px 0 0 var(--acento);
+}
+
+/* Tira de corte de las medidas de posicion: raya las clases de fondo y marca
+   la posicion del cuantil con una linea vertical en acento. */
+.tira-corte {
+  position: relative;
+  height: 24px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tira-marca,
+.tira-fantasma {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.tira-marca {
+  background: var(--acento);
+}
+
+.tira-fantasma {
+  border-left: 2px dashed var(--borde-fuerte);
+}
+
+.tira-leyenda {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  font-size: 0.62rem;
+}
+
+.tira-leyenda-fija {
+  font-weight: 700;
+  color: var(--acento);
+}
+
+.tira-leyenda-previa {
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+/* Tooltip HTML de las graficas: sigue al cursor dentro de la tarjeta y se
+   voltea a la izquierda cuando queda pegado al borde derecho. El fondo es
+   fijo en tono nocturno para que el texto se lea igual en ambos temas. */
+.tooltip-grafica {
+  position: absolute;
+  z-index: 6;
+  padding: 0.45rem 0.6rem;
+  background: #0e1d21;
+  color: #f6efef;
+  border: 1px solid #677e8a;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(14, 29, 33, 0.35);
+  font-size: 0.66rem;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(14px, -50%);
+}
+
+.tooltip-grafica.volteado {
+  transform: translate(calc(-100% - 14px), -50%);
+}
+
+.tooltip-grafica-titulo {
+  font-weight: 800;
+  color: #e0b4b2;
+}
+
+/* ---------- Area de trabajo: bento grid ---------- */
+
+/* Toolbar: titulo + chips mono de parametros a la izquierda, exportar PDF a
+   la derecha. Vive fuera de cualquier tarjeta para no depender de su
+   cabecera. */
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.workspace-titulo-envoltura {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.workspace-titulo {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--texto);
+}
+
+.workspace-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* Chips de parametros (n / k / i): monoespaciados como los datos que
+   representan; antes iban duplicados en la cabecera de la tabla. */
+.chip-dato {
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  font-weight: 650;
+  background: var(--superficie-2);
+  border-color: var(--borde);
+  color: var(--texto-tenue);
+  transition: border-color 150ms ease, color 150ms ease;
+}
+
+.chip-dato:hover {
+  border-color: var(--borde-fuerte);
+  color: var(--texto);
+}
+
+/* Rejilla principal del dashboard, por areas nombradas:
+     entrada   entrada   franja compacta de captura a todo el ancho
+     frec      medidas   la tabla manda el ancho (1.25fr); las tarjetas de
+                         medidas se estiran en altura y centran su contenido
+                         para igualar el pie de la tabla: sin espacio muerto
+     graf      graf      bento inferior de graficas + interpretaciones
+   minmax(0, ...) evita que la tabla ancha desborde su columna y rompa el
+   grid; stretch iguala la altura de las tarjetas vecinas. */
+.bento {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-areas:
+    'entrada  entrada'
+    'frec     medidas'
+    'graficas graficas';
+  gap: 1.1rem;
+  align-items: stretch;
+}
+
+.bento-entrada {
+  grid-area: entrada;
+  min-width: 0;
+}
+
+.bento-frecuencias {
+  grid-area: frec;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cuerpo de la tarjeta de frecuencias: columna flexible; la tabla define la
+   altura natural y el sobrante (si lo hay) queda absorbido por el propio
+   recuadro, que se estira hasta el pie del bento. */
+.tarjeta-cuerpo--frecuencias {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.bento-medidas {
+  grid-area: medidas;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+/* Las tres tarjetas de medidas se reparten el sobrante de altura de la
+   columna para que su borde inferior alcance el pie de la tabla. */
+.bento-medidas > .tarjeta {
+  flex: 1 1 auto;
+}
+
+/* Cuerpo centrado verticalmente cuando la tarjeta se estira: el contenido
+   flota en el centro del recuadro en vez de dejar un hueco bajo. */
+.bento-medidas .tarjeta-cuerpo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.bento-medidas .rejilla-datos {
+  width: 100%;
+}
+
+.bento-graficas {
+  grid-area: graficas;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .bento {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'entrada'
+      'frec'
+      'medidas'
+      'graficas';
+  }
+
+  .bento-medidas > .tarjeta {
+    flex: 0 0 auto;
+  }
+
+  .bento-medidas .tarjeta-cuerpo {
+    justify-content: flex-start;
+  }
+}
+
+/* Zona de entrada cuando aun no hay datos: una sola tarjeta, sin bento. */
+.workspace-entrada-inicial {
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+/* Rejillas de tiles (Dato / Medida). Las variantes numeradas fijan el numero
+   de columnas para que cada familia de medidas tenga una composicion
+   equilibrada dentro de su tarjeta; por debajo de 760px vuelven al flujo
+   fluido auto-fit. */
+.rejilla-datos {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.rejilla-datos--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rejilla-datos--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* "Datos iniciales": seis tiles ligeros (n, Xmin, Xmax, R, k, i). */
+.rejilla-datos--6 {
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+}
+
+@media (max-width: 760px) {
+  .rejilla-datos--2,
+  .rejilla-datos--3 {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+/* Acentos de tarjeta: barra izquierda en un tono fijo de la paleta maestra,
+   para distinguir de un vistazo a que familia pertenece cada tarjeta. */
+.tarjeta--acento-acero {
+  border-left: 4px solid var(--acento-acero);
+}
+
+.tarjeta--acento-ciruela {
+  border-left: 4px solid var(--acento-ciruela);
+}
+
+.tarjeta--acento-rosa {
+  border-left: 4px solid var(--acento-rosa);
+}
+
+/* Recuadro de interpretacion automatica bajo cada grafica. El texto viaja
+   tambien al PDF por data-interpretacion; aqui se muestra en pantalla. */
+.interpretacion {
+  margin: 0.65rem 0 0 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: var(--texto-tenue);
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+  border-left: 3px solid var(--acento-acero);
+  border-radius: 8px;
+}
+
+/* ---------- Entrada compacta de datos ---------- */
+
+/* Franja horizontal: nombre del proyecto y textarea lado a lado. Los dos
+   campos comparten la fila y el boton de colapsar de la cabecera deja solo
+   el resumen (n = ...) cuando la zona esta cerrada. */
+.entrada-rejilla {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 2fr);
+  gap: 0.75rem;
+  align-items: end;
+}
+
+@media (max-width: 860px) {
+  .entrada-rejilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.entrada-rejilla .entrada-mono {
+  resize: vertical;
+  min-height: 2.9rem;
+}
+
+/* Fila de acciones fluida: aleatorios + guardar + nota de edicion. */
+.entrada-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+/* Alertas dentro de la zona de entrada: margen superior minimo para que la
+   franja se mantenga compacta. */
+.zona-datos-cuerpo > .alerta {
+  margin: 0.7rem 0 0 0;
+}
+
+/* Zona de datos colapsable: al cerrarse se ve solo el resumen en la cabecera. */
+.zona-datos-cuerpo {
+  overflow: hidden;
+}
+
+/* Entrada manual del k de las medidas de posicion: campo compacto y mono,
+   integrado en la fila de titulo de cada tarjeta. */
+.entrada-posicion {
+  width: 56px;
+  flex: 0 0 auto;
+  padding: 0.26rem 0.35rem;
+  font-family: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--texto);
+  background: var(--superficie);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 8px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.entrada-posicion:hover {
+  border-color: var(--acento-acero);
+}
+
+.entrada-posicion:focus {
+  outline: none;
+  border-color: var(--acento-acero);
+  box-shadow: 0 0 0 3px rgba(103, 126, 138, 0.28);
+}
+
+/* ---------- Graficas: barra de controles y rejilla bento ---------- */
+
+/* Barra de controles: contador, selector multiple de graficas, divisor,
+   capas sobre el histograma y acciones Todas/Ninguna. Cuando no cabe en una
+   sola fila hace wrap de forma limpia (el divisor se oculta en pantallas
+   estrechas). */
+.graficas-barra {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.85rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  box-shadow: var(--sombra-panel);
+}
+
+.graficas-cuenta {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.graficas-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.graficas-divisor {
+  width: 1px;
+  height: 22px;
+  flex: 0 0 1px;
+  background: var(--borde);
+}
+
+.graficas-capas-etiqueta {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+  margin-right: 0.15rem;
+}
+
+.graficas-acciones {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+@media (max-width: 700px) {
+  .graficas-divisor {
+    display: none;
+  }
+
+  .graficas-acciones {
+    margin-left: 0;
+  }
+}
+
+/* Chip de seleccion de grafica/capa: casilla nativa discreta con accent-color
+   de la paleta; el estado activo realza borde, fondo y tinta. */
+.opcion-grafica {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--borde);
+  background: var(--superficie-2);
+  color: var(--texto-tenue);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.opcion-grafica:hover {
+  border-color: var(--borde-fuerte);
+  color: var(--texto);
+}
+
+.opcion-grafica input {
+  margin: 0;
+  accent-color: var(--acento);
+  cursor: pointer;
+}
+
+.opcion-grafica--activa {
+  border-color: var(--chip-activo-borde);
+  background: var(--acento-suave);
+  color: var(--acento);
+  box-shadow: inset 0 0 0 1px var(--chip-activo-borde);
+}
+
+:root[data-tema='oscuro'] .opcion-grafica--activa {
+  color: var(--calido);
+}
+
+/* Rejilla bento de graficas: columnas fluidas que colapsan sin breakpoints
+   (min(420px, 100%) evita el desbordesobre contenedores estrechos). */
+.graficas-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+  align-items: stretch;
+}
+
+.graficas-vacio {
+  margin-top: 1rem;
+  padding: 1.8rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--texto-tenue);
+  background: var(--superficie);
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: 14px;
+}
+
+/* Tarjeta de una grafica (figure): esquinas limpias, elevacion suave al
+   hover y titulo propio. El contrato data-reporte del PDF no cambia. */
+.tarjeta-grafica {
+  position: relative;
+  margin: 0;
+  padding: 0.9rem 0.9rem 0.75rem 0.9rem;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 14px;
+  box-shadow: var(--sombra-panel);
+  transition: box-shadow 180ms ease-out, transform 180ms ease-out, border-color 180ms ease;
+}
+
+.tarjeta-grafica--realce {
+  border-color: var(--borde-fuerte);
+  box-shadow: var(--sombra-tarjeta-alta);
+  transform: translateY(-2px);
+}
+
+.tarjeta-grafica-titulo {
+  margin: 0 0 0.55rem 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--grafica-valor);
+}

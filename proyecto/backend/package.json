@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "API REST con Express y SQLite",
+  "description": "API REST con Express y MySQL",
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
@@ -18,7 +18,8 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.3",
-    "sqlite3": "^6.0.1"
+    "mysql2": "^3.24.6",
+    "nodemailer": "^10.1.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

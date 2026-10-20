@@ -1,122 +1,112 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../db');
+const { consultar, obtener, ejecutar, transaccion } = require('../db');
 const { construirFrecuencias } = require('../stats/frecuencias');
 const { validarLote, calcularEstadisticos } = require('../validacion');
 
-// Persiste en SQLite las filas de la tabla de frecuencias, incluidas las columnas de apoyo
-function insertarFrecuencias(loteId, filas, done) {
-  const insert = `
-    INSERT INTO tabla_frecuencias
-      (lote_id, clase, limite_inferior, limite_superior,
-       limite_inferior_real, limite_superior_real, marca_clase,
-       frecuencia, acumulada, relativa, porcentaje, suavizada,
-       producto, relativa_producto, desviacion, desviacion_ponderada)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-  const stmt = db.prepare(insert);
-  filas.forEach((f) =>
-    stmt.run(
-      loteId,
-      f.clase,
-      f.limiteInferior,
-      f.limiteSuperior,
-      f.limiteInferiorReal,
-      f.limiteSuperiorReal,
-      f.marcaClase,
-      f.frecuencia,
-      f.acumulada,
-      f.relativa,
-      f.porcentaje,
-      f.suavizada,
-      f.producto,
-      f.relativaProducto,
-      f.desviacion,
-      f.desviacionPonderada
-    )
+// Envuelve handlers async: Express 4 no captura las promesas rechazadas y sin esto un
+// error inesperado dejaria la peticion colgada en vez de responder con 500.
+const envolver = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+
+// Inserts en masa con `VALUES ?` de mysql2: un solo envio para todo el lote en vez de
+// un statement por fila como hacia el driver de SQLite.
+async function insertarDatos(conn, loteId, valores) {
+  await ejecutar(
+    'INSERT INTO datos (lote_id, valor) VALUES ?',
+    [valores.map((valor) => [loteId, valor])],
+    conn
   );
-  stmt.finalize(done);
+}
+
+// Persiste en MySQL las filas de la tabla de frecuencias, incluidas las columnas de apoyo
+async function insertarFrecuencias(conn, loteId, filas) {
+  if (filas.length === 0) return;
+
+  await ejecutar(
+    `INSERT INTO tabla_frecuencias
+       (lote_id, clase, limite_inferior, limite_superior,
+        limite_inferior_real, limite_superior_real, marca_clase,
+        frecuencia, acumulada, relativa, porcentaje, suavizada,
+        producto, relativa_producto, desviacion, desviacion_ponderada)
+     VALUES ?`,
+    [
+      filas.map((f) => [
+        loteId,
+        f.clase,
+        f.limiteInferior,
+        f.limiteSuperior,
+        f.limiteInferiorReal ?? null,
+        f.limiteSuperiorReal ?? null,
+        f.marcaClase,
+        f.frecuencia,
+        f.acumulada,
+        f.relativa,
+        f.porcentaje,
+        f.suavizada ?? null,
+        f.producto ?? null,
+        f.relativaProducto ?? null,
+        f.desviacion ?? null,
+        f.desviacionPonderada ?? null,
+      ]),
+    ],
+    conn
+  );
 }
 
 // Persiste las medidas de posicion y de variabilidad
-function insertarEstadisticosAvanzados(loteId, tabla, done) {
-  const insert = `
-    INSERT INTO estadisticos_avanzados
-      (lote_id, media, media_ponderada, posicion_mediana, moda,
-       suma_producto, suma_desviacion_ponderada,
-       varianza_poblacional, desviacion_poblacional, coeficiente_variacion,
-       varianza_muestral, desviacion_muestral,
-       q1, mediana, q3, p17)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-  const stmt = db.prepare(insert);
-  stmt.run(
-    loteId,
-    tabla.media,
-    tabla.mediaPonderada,
-    tabla.posicionMediana,
-    tabla.moda,
-    tabla.sumaProducto,
-    tabla.sumaDesviacionPonderada,
-    tabla.varianzaPoblacional,
-    tabla.desviacionPoblacional,
-    tabla.coeficienteVariacion,
-    tabla.varianzaMuestral,
-    tabla.desviacionMuestral,
-    tabla.q1,
-    tabla.mediana,
-    tabla.q3,
-    tabla.p17
+async function insertarEstadisticosAvanzados(conn, loteId, tabla) {
+  await ejecutar(
+    `INSERT INTO estadisticos_avanzados
+       (lote_id, media, media_ponderada, posicion_mediana, moda,
+        suma_producto, suma_desviacion_ponderada,
+        varianza_poblacional, desviacion_poblacional, coeficiente_variacion,
+        varianza_muestral, desviacion_muestral,
+        q1, mediana, q3, p17)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      loteId,
+      tabla.media,
+      tabla.mediaPonderada ?? null,
+      tabla.posicionMediana ?? null,
+      tabla.moda ?? null,
+      tabla.sumaProducto,
+      tabla.sumaDesviacionPonderada,
+      tabla.varianzaPoblacional,
+      tabla.desviacionPoblacional,
+      tabla.coeficienteVariacion ?? null,
+      tabla.varianzaMuestral,
+      tabla.desviacionMuestral,
+      tabla.q1 ?? null,
+      tabla.mediana ?? null,
+      tabla.q3 ?? null,
+      tabla.p17 ?? null,
+    ],
+    conn
   );
-  stmt.finalize(done);
-}
-
-// db.all devuelve un arreglo de filas; estos endpoints entregan un unico objeto por lote
-// y con los mismos nombres en camelCase que usa el calculo en memoria, para que el
-// frontend lea igual un lote recien creado y uno releido de la base.
-function primerRegistro(filas) {
-  return filas && filas.length > 0 ? filas[0] : null;
 }
 
 // Tablas hijas que cuelgan de un lote, en el orden en que se borran.
 const TABLAS_HIJAS = ['datos', 'estadisticos_basicos', 'tabla_frecuencias', 'estadisticos_avanzados'];
 
-// Calcula y persiste estadisticos basicos, avanzados y tabla de frecuencias de un lote
-// ya creado. Compartido entre POST y PUT para que guardar un lote nuevo y actualizar uno
-// existente pasen exactamente por el mismo calculo.
-function guardarResultados(loteId, valores, callback) {
-  const stats = calcularEstadisticos(valores);
-  const frecuencias = construirFrecuencias(valores);
-
-  if (!stats || !frecuencias) {
-    return callback(new Error('No fue posible calcular la distribucion con los datos recibidos'));
+// Borra en cascada las tablas hijas dentro de la transaccion abierta. El ON DELETE CASCADE
+// de InnoDB ya lo haria solo, pero se borra de forma explicita para no depender de ella.
+async function borrarResultados(conn, loteId) {
+  for (const tabla of TABLAS_HIJAS) {
+    await ejecutar(`DELETE FROM ${tabla} WHERE lote_id = ?`, [loteId], conn);
   }
-
-  db.run(
-    'INSERT INTO estadisticos_basicos (lote_id, n, x_min, x_max, rango) VALUES (?, ?, ?, ?, ?)',
-    [loteId, stats.n, stats.xMin, stats.xMax, stats.rango],
-    (err1) => {
-      if (err1) return callback(err1);
-
-      insertarEstadisticosAvanzados(loteId, frecuencias, (err2) => {
-        if (err2) return callback(err2);
-
-        insertarFrecuencias(loteId, frecuencias.filas, (err3) => {
-          if (err3) return callback(err3);
-          callback(null, { stats, frecuencias });
-        });
-      });
-    }
-  );
 }
 
-// Borra en cascada las tablas hijas dentro de una transaccion ya abierta.
-function borrarResultados(loteId, indice, callback) {
-  if (indice >= TABLAS_HIJAS.length) return callback(null);
-  db.run(`DELETE FROM ${TABLAS_HIJAS[indice]} WHERE lote_id = ?`, [loteId], (err) => {
-    if (err) return callback(err);
-    borrarResultados(loteId, indice + 1, callback);
-  });
+// Calcula y persiste estadisticos basicos, avanzados y tabla de frecuencias de un lote
+// ya creado. Compartido entre POST y PUT para que guardar un lote nuevo y actualizar uno
+// existente pasen exactamente por el mismo calculo, siempre dentro de la transaccion.
+async function guardarResultados(conn, loteId, stats, frecuencias) {
+  await ejecutar(
+    'INSERT INTO estadisticos_basicos (lote_id, n, x_min, x_max, rango) VALUES (?, ?, ?, ?, ?)',
+    [loteId, stats.n, stats.xMin, stats.xMax, stats.rango],
+    conn
+  );
+  await insertarEstadisticosAvanzados(conn, loteId, frecuencias);
+  await insertarFrecuencias(conn, loteId, frecuencias.filas);
 }
 
 function estadisticosBasicosEnCampos(fila) {
@@ -179,62 +169,58 @@ const SELECT_ESTADISTICOS = `
 `;
 
 // GET /api/lotes -> historial propio: solo los lotes del usuario autenticado
-router.get('/', (req, res) => {
-  db.all(
-    `SELECT id, nombre, descripcion, cantidad, creado_en
-       FROM lotes_datos
-      WHERE usuario_id = ?
-      ORDER BY id DESC`,
-    [req.usuario.id],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows);
-    }
-  );
-});
+router.get(
+  '/',
+  envolver(async (req, res) => {
+    const rows = await consultar(
+      `SELECT id, nombre, descripcion, cantidad, creado_en
+         FROM lotes_datos
+        WHERE usuario_id = ?
+        ORDER BY id DESC`,
+      [req.usuario.id]
+    );
+    res.json(rows);
+  })
+);
 
 // GET /api/lotes/:id -> obtener un lote con sus datos crudos + estadisticos + tabla de frecuencias
 // El filtro por duenio va en la propia consulta: un lote ajeno responde 404, igual que uno
 // inexistente, para que la API no delate que ese id existe en otra cuenta.
-router.get('/:id', (req, res) => {
-  db.get(
-    'SELECT * FROM lotes_datos WHERE id = ? AND usuario_id = ?',
-    [req.params.id, req.usuario.id],
-    (err, lote) => {
-    if (err) return res.status(500).json({ error: err.message });
+router.get(
+  '/:id',
+  envolver(async (req, res) => {
+    const lote = await obtener('SELECT * FROM lotes_datos WHERE id = ? AND usuario_id = ?', [
+      req.params.id,
+      req.usuario.id,
+    ]);
     if (!lote) return res.status(404).json({ error: 'Lote no encontrado' });
 
-    db.all('SELECT valor FROM datos WHERE lote_id = ? ORDER BY id', [req.params.id], (err2, filas) => {
-      if (err2) return res.status(500).json({ error: err2.message });
+    const filas = await consultar('SELECT valor FROM datos WHERE lote_id = ? ORDER BY id', [req.params.id]);
+    const valores = filas.map((f) => f.valor);
+    if (valores.length === 0) {
+      return res.json({ ...lote, datos: [], estadisticos: null, frecuencias: null, estadisticosAvanzados: null });
+    }
 
-      const valores = filas.map((f) => f.valor);
-      if (valores.length === 0) {
-        return res.json({ ...lote, datos: [], estadisticos: null, frecuencias: null, estadisticosAvanzados: null });
-      }
+    const [stats, avanzados] = await Promise.all([
+      obtener('SELECT * FROM estadisticos_basicos WHERE lote_id = ?', [req.params.id]),
+      obtener('SELECT * FROM estadisticos_avanzados WHERE lote_id = ?', [req.params.id]),
+    ]);
 
-      db.all('SELECT * FROM estadisticos_basicos WHERE lote_id = ?', [req.params.id], (err3, stats) => {
-        if (err3) return res.status(500).json({ error: err3.message });
-        db.all('SELECT * FROM estadisticos_avanzados WHERE lote_id = ?', [req.params.id], (err4, avanzados) => {
-          if (err4) return res.status(500).json({ error: err4.message });
-
-          res.json({
-            ...lote,
-            datos: valores,
-            estadisticos: estadisticosBasicosEnCampos(primerRegistro(stats)),
-            estadisticosAvanzados: estadisticosAvanzadosEnCampos(primerRegistro(avanzados)),
-            frecuencias: construirFrecuencias(valores),
-          });
-        });
-      });
+    res.json({
+      ...lote,
+      datos: valores,
+      estadisticos: estadisticosBasicosEnCampos(stats),
+      estadisticosAvanzados: estadisticosAvanzadosEnCampos(avanzados),
+      frecuencias: construirFrecuencias(valores),
     });
-  });
-});
+  })
+);
 
 // GET /api/lotes/:id/stats -> obtener solo los estadisticos de un lote
-router.get('/:id/stats', (req, res) => {
-  db.all(SELECT_ESTADISTICOS, [req.usuario.id, req.params.id], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const fila = primerRegistro(rows);
+router.get(
+  '/:id/stats',
+  envolver(async (req, res) => {
+    const fila = await obtener(SELECT_ESTADISTICOS, [req.usuario.id, req.params.id]);
     if (!fila) {
       return res.status(404).json({ error: 'Estadisticos no encontrados para este lote' });
     }
@@ -242,175 +228,142 @@ router.get('/:id/stats', (req, res) => {
       ...estadisticosBasicosEnCampos(fila),
       ...estadisticosAvanzadosEnCampos(fila),
     });
-  });
-});
+  })
+);
 
 // GET /api/lotes/:id/frecuencias -> obtener solo la tabla de frecuencias
-router.get('/:id/frecuencias', (req, res) => {
-  db.get(
-    'SELECT id FROM lotes_datos WHERE id = ? AND usuario_id = ?',
-    [req.params.id, req.usuario.id],
-    (errDuenio, lote) => {
-      if (errDuenio) return res.status(500).json({ error: errDuenio.message });
-      if (!lote) return res.status(404).json({ error: 'Lote no encontrado' });
+router.get(
+  '/:id/frecuencias',
+  envolver(async (req, res) => {
+    const lote = await obtener('SELECT id FROM lotes_datos WHERE id = ? AND usuario_id = ?', [
+      req.params.id,
+      req.usuario.id,
+    ]);
+    if (!lote) return res.status(404).json({ error: 'Lote no encontrado' });
 
-      db.all('SELECT valor FROM datos WHERE lote_id = ? ORDER BY id', [req.params.id], (err, filas) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (!filas || filas.length === 0) {
-          return res.status(404).json({ error: 'Lote sin datos para calcular frecuencias' });
-        }
-        const tabla = construirFrecuencias(filas.map((f) => f.valor));
-        res.json(tabla);
-      });
+    const filas = await consultar('SELECT valor FROM datos WHERE lote_id = ? ORDER BY id', [req.params.id]);
+    if (filas.length === 0) {
+      return res.status(404).json({ error: 'Lote sin datos para calcular frecuencias' });
     }
-  );
-});
+    const tabla = construirFrecuencias(filas.map((f) => f.valor));
+    res.json(tabla);
+  })
+);
 
 // POST /api/lotes -> recibir datos, validar, calcular y almacenar a nombre del usuario
-router.post('/', (req, res) => {
-  const validacion = validarLote(req.body);
+router.post(
+  '/',
+  envolver(async (req, res) => {
+    const validacion = validarLote(req.body);
 
-  if (validacion.error) {
-    return res.status(400).json({ error: validacion.error, rechazados: validacion.rechazados });
-  }
+    if (validacion.error) {
+      return res.status(400).json({ error: validacion.error, rechazados: validacion.rechazados });
+    }
 
-  const { nombre, descripcion, valores } = validacion;
+    const { nombre, descripcion, valores } = validacion;
 
-  const stats = calcularEstadisticos(valores);
-  const frecuencias = construirFrecuencias(valores);
+    const stats = calcularEstadisticos(valores);
+    const frecuencias = construirFrecuencias(valores);
 
-  if (!stats || !frecuencias) {
-    return res.status(400).json({ error: 'No fue posible calcular la distribucion con los datos recibidos' });
-  }
+    if (!stats || !frecuencias) {
+      return res.status(400).json({ error: 'No fue posible calcular la distribucion con los datos recibidos' });
+    }
 
-  db.run(
-    'INSERT INTO lotes_datos (nombre, descripcion, cantidad, usuario_id) VALUES (?, ?, ?, ?)',
-    [nombre, descripcion, valores.length, req.usuario.id],
-    function (err) {
-    if (err) return res.status(500).json({ error: err.message });
+    // Todo el lote (cabecera, datos crudos y resultados) entra y sale en una sola
+    // transaccion: o se persiste completo o no se persiste nada.
+    const id = await transaccion(async (conn) => {
+      const creado = await ejecutar(
+        'INSERT INTO lotes_datos (nombre, descripcion, cantidad, usuario_id) VALUES (?, ?, ?, ?)',
+        [nombre, descripcion, valores.length, req.usuario.id],
+        conn
+      );
+      const loteId = creado.insertId;
 
-    const loteId = this.lastID;
+      await insertarDatos(conn, loteId, valores);
+      await guardarResultados(conn, loteId, stats, frecuencias);
 
-    const insertDato = 'INSERT INTO datos (lote_id, valor) VALUES (?, ?)';
-    const stmt = db.prepare(insertDato);
-    valores.forEach((valor) => stmt.run(loteId, valor));
-
-    stmt.finalize((err2) => {
-      if (err2) return res.status(500).json({ error: err2.message });
-
-      guardarResultados(loteId, valores, (err3, resultados) => {
-        if (err3) return res.status(500).json({ error: err3.message });
-
-        res.status(201).json({
-          id: loteId,
-          nombre,
-          descripcion,
-          cantidad: valores.length,
-          estadisticos: resultados.stats,
-          frecuencias: resultados.frecuencias,
-        });
-      });
+      return loteId;
     });
-  });
-});
+
+    res.status(201).json({
+      id,
+      nombre,
+      descripcion,
+      cantidad: valores.length,
+      estadisticos: stats,
+      frecuencias,
+    });
+  })
+);
 
 // PUT /api/lotes/:id -> reemplaza nombre, descripcion y datos de un lote propio y
 // recalcula todos los resultados. Es lo que usa el frontend al volver a guardar un
 // trabajo abierto desde el historial, para que no se duplique en la lista.
-router.put('/:id', (req, res) => {
-  const loteId = req.params.id;
+router.put(
+  '/:id',
+  envolver(async (req, res) => {
+    const loteId = req.params.id;
 
-  db.get(
-    'SELECT id FROM lotes_datos WHERE id = ? AND usuario_id = ?',
-    [loteId, req.usuario.id],
-    (err, lote) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (!lote) return res.status(404).json({ error: 'Lote no encontrado' });
+    const lote = await obtener('SELECT id FROM lotes_datos WHERE id = ? AND usuario_id = ?', [
+      loteId,
+      req.usuario.id,
+    ]);
+    if (!lote) return res.status(404).json({ error: 'Lote no encontrado' });
 
-      const validacion = validarLote(req.body);
-      if (validacion.error) {
-        return res.status(400).json({ error: validacion.error, rechazados: validacion.rechazados });
-      }
-
-      const { nombre, descripcion, valores } = validacion;
-
-      db.run('BEGIN TRANSACTION', (err1) => {
-        if (err1) return res.status(500).json({ error: err1.message });
-
-        const fallo = (e) => db.run('ROLLBACK', () => res.status(500).json({ error: e.message }));
-
-        borrarResultados(loteId, 0, (err2) => {
-          if (err2) return fallo(err2);
-
-          db.run(
-            'UPDATE lotes_datos SET nombre = ?, descripcion = ?, cantidad = ? WHERE id = ?',
-            [nombre, descripcion, valores.length, loteId],
-            (err3) => {
-              if (err3) return fallo(err3);
-
-              const stmt = db.prepare('INSERT INTO datos (lote_id, valor) VALUES (?, ?)');
-              valores.forEach((valor) => stmt.run(loteId, valor));
-
-              stmt.finalize((err4) => {
-                if (err4) return fallo(err4);
-
-                guardarResultados(loteId, valores, (err5, resultados) => {
-                  if (err5) return fallo(err5);
-
-                  db.run('COMMIT', (err6) => {
-                    if (err6) return fallo(err6);
-                    res.json({
-                      id: Number(loteId),
-                      nombre,
-                      descripcion,
-                      cantidad: valores.length,
-                      estadisticos: resultados.stats,
-                      frecuencias: resultados.frecuencias,
-                    });
-                  });
-                });
-              });
-            }
-          );
-        });
-      });
+    const validacion = validarLote(req.body);
+    if (validacion.error) {
+      return res.status(400).json({ error: validacion.error, rechazados: validacion.rechazados });
     }
-  );
-});
+
+    const { nombre, descripcion, valores } = validacion;
+
+    const stats = calcularEstadisticos(valores);
+    const frecuencias = construirFrecuencias(valores);
+    if (!stats || !frecuencias) {
+      return res.status(400).json({ error: 'No fue posible calcular la distribucion con los datos recibidos' });
+    }
+
+    await transaccion(async (conn) => {
+      await borrarResultados(conn, loteId);
+      await ejecutar(
+        'UPDATE lotes_datos SET nombre = ?, descripcion = ?, cantidad = ? WHERE id = ?',
+        [nombre, descripcion, valores.length, loteId],
+        conn
+      );
+      await insertarDatos(conn, loteId, valores);
+      await guardarResultados(conn, loteId, stats, frecuencias);
+    });
+
+    res.json({
+      id: Number(loteId),
+      nombre,
+      descripcion,
+      cantidad: valores.length,
+      estadisticos: stats,
+      frecuencias,
+    });
+  })
+);
 
 // DELETE /api/lotes/:id -> eliminar el lote y todo lo que cuelga de el.
-// Las cuatro tablas hijas tienen ON DELETE CASCADE, pero se borran de forma explicita
-// dentro de una transaccion para que el borrado sea atomico y no dependa del PRAGMA.
-router.delete('/:id', (req, res) => {
-  const loteId = req.params.id;
+router.delete(
+  '/:id',
+  envolver(async (req, res) => {
+    const loteId = req.params.id;
 
-  db.get(
-    'SELECT id FROM lotes_datos WHERE id = ? AND usuario_id = ?',
-    [loteId, req.usuario.id],
-    (err, lote) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (!lote) return res.status(404).json({ error: 'Lote no encontrado' });
+    const lote = await obtener('SELECT id FROM lotes_datos WHERE id = ? AND usuario_id = ?', [
+      loteId,
+      req.usuario.id,
+    ]);
+    if (!lote) return res.status(404).json({ error: 'Lote no encontrado' });
 
-      db.run('BEGIN TRANSACTION', (err1) => {
-        if (err1) return res.status(500).json({ error: err1.message });
+    await transaccion(async (conn) => {
+      await borrarResultados(conn, loteId);
+      await ejecutar('DELETE FROM lotes_datos WHERE id = ?', [loteId], conn);
+    });
 
-        borrarResultados(loteId, 0, (err2) => {
-          if (err2) {
-            return db.run('ROLLBACK', () => res.status(500).json({ error: err2.message }));
-          }
-          db.run('DELETE FROM lotes_datos WHERE id = ?', [loteId], (err3) => {
-            if (err3) {
-              return db.run('ROLLBACK', () => res.status(500).json({ error: err3.message }));
-            }
-            db.run('COMMIT', (err4) => {
-              if (err4) return res.status(500).json({ error: err4.message });
-              res.json({ mensaje: `Lote ${loteId} eliminado`, id: Number(loteId) });
-            });
-          });
-        });
-      });
-    }
-  );
-});
+    res.json({ mensaje: `Lote ${loteId} eliminado`, id: Number(loteId) });
+  })
+);
 
 module.exports = router;

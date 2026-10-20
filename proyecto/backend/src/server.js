@@ -4,18 +4,31 @@ require('dotenv').config();
 
 const { initDb } = require('./db');
 const { requerirAutenticacion } = require('./middleware/auth');
+const { diagnosticarCorreo } = require('./mailer');
 const datosRoutes = require('./routes/datos.routes');
 const authRoutes = require('./routes/auth.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middlewares
-app.use(cors());
-app.use(express.json());
+// Origenes permitidos: en produccion (Railway) CORS_ORIGIN lleva el dominio
+// publico del frontend (Vercel), p. ej. https://statlab.vercel.app; se aceptan
+// varios separados por coma. Sin definir, solo se permite el entorno local de
+// desarrollo (Vite en 5173/4173 y el propio backend en 3001).
+const ORIGENES_DEV = ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:3001'];
+const ORIGENES_PERMITIDOS = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
 
-// Inicializa la base de datos y crea el esquema si no existe
-initDb();
+const opcionesCors =
+  ORIGENES_PERMITIDOS.length > 0
+    ? { origin: ORIGENES_PERMITIDOS, methods: ['GET', 'POST', 'PUT', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] }
+    : { origin: ORIGENES_DEV };
+
+// Middlewares
+app.use(cors(opcionesCors));
+app.use(express.json());
 
 // Rutas
 app.get('/', (req, res) => {
@@ -45,6 +58,34 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Error interno del servidor' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-});
+// Con MySQL el arranque es asincrono: initDb conecta con reintentos, crea la base si
+// falta y monta el esquema. Solo despues de eso se escuchan peticiones, para que
+// ninguna consulta salga contra una base caida o un esquema sin montar.
+async function iniciar() {
+  try {
+    await initDb();
+  } catch (err) {
+    console.error('No se pudo conectar a MySQL:', err.message);
+    process.exit(1);
+  }
+
+  // Diagnostico de correo en el arranque: valida la autenticacion SMTP con
+  // verify() e imprime el error exacto si la configuracion esta mal (clave
+  // personal en vez de App Password, puerto caido...), de modo que un fallo
+  // de envio se ve aqui y no se descubre cuando alguien pide un codigo.
+  await diagnosticarCorreo();
+
+  if (ORIGENES_PERMITIDOS.length > 0) {
+    console.log(`CORS: origenes permitidos -> ${ORIGENES_PERMITIDOS.join(', ')}`);
+  } else {
+    console.log('CORS: modo desarrollo (origenes locales); define CORS_ORIGIN en produccion');
+  }
+
+  // Sin host explicito Node escucha en todas las interfaces (0.0.0.0), que es
+  // lo que Railway/Render esperan para enrutar el trafico externo.
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
+  });
+}
+
+iniciar();
