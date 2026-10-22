@@ -3,7 +3,13 @@ const path = require('node:path');
 const { construirFrecuencias } = require('../src/stats/frecuencias');
 const { initDb, consultar, ejecutar, cerrar } = require('../src/db');
 
-const BASE = 'http://localhost:3001/api';
+// Puerto propio del servidor que arranca la prueba. El 3001 lo usa el
+// servidor de desarrollo y suele estar ocupado: si el hijo no puede escuchar
+// ahi, muere con EADDRINUSE y el test se comunicaria con ESE servidor en vez
+// del suyo, que ademas tiene otra base de datos y otro estado.
+const PUERTO_TEST = Number(process.env.PORT_E2E) || 3199;
+
+const BASE = `http://localhost:${PUERTO_TEST}/api`;
 const FRONTEND = path.join(__dirname, '..', '..', 'frontend', 'src', 'stats', 'frecuencias.js');
 
 const DATOS = [12, 15, 15, 18, 22, 22, 22, 25, 28, 28, 30, 33, 33, 33, 36, 40, 40, 44, 45, 48, 50, 52, 55, 58, 60, 62, 65, 68, 70, 72, 75, 78, 80, 85, 88, 90, 5, 33, 40];
@@ -53,6 +59,14 @@ async function esperarServidor(intentos = 40) {
   // sirve como senal de que el servidor ya levanto.
   const raiz = BASE.replace(/\/api$/, '');
   for (let i = 0; i < intentos; i++) {
+    // Si el hijo murio no hay nada que esperar: seguir insistiendo solo gastaria
+    // el tiempo de la prueba y ocultaria el error que lo Provoco.
+    if (hijoMuerto) {
+      throw new Error(
+        `El servidor de la prueba termino al arrancar (codigo ${hijoMuerto.codigo}).\n` +
+          `${salidaError.trim() || '(sin salida de error)'}`
+      );
+    }
     try {
       const res = await fetch(raiz);
       if (res.ok) return true;
@@ -64,11 +78,63 @@ async function esperarServidor(intentos = 40) {
   return false;
 }
 
+// Salida del servidor hijo: se guarda integra para poder leer los codigos de 6
+// digitos que imprime en la consola cuando no hay SMTP configurado.
+let salidaServidor = '';
+
+// Errores del servidor hijo (EADDRINUSE, MySQL caido...). Se guardan aparte
+// para poder ensenar que fallo cuando el hijo muere antes de levantar.
+let salidaError = '';
+
+// Si el hijo muere, el test no debe quedarse esperando una respuesta que nunca
+// llegara: con un puerto ocupado el proceso muere al instante con EADDRINUSE
+// y la peticion siguiente hanguearia hasta que el tiempo se agotara.
+let hijoMuerto = null;
+
+// Variables de entorno del servidor de la prueba: puerto propio (para no
+// chocar con el de desarrollo) y SMTP vacio, aunque con el flujo por correo
+// desactivado el servidor ya no lo usa.
+const ENTORNO_SIN_CORREO = {
+  ...process.env,
+  PORT: String(PUERTO_TEST),
+  SMTP_HOST: '',
+  SMTP_PORT: '',
+  SMTP_USER: '',
+  SMTP_PASS: '',
+  EMAIL_USER: '',
+  EMAIL_PASS: '',
+};
+
 (async () => {
   const servidor = spawn('node', ['src/server.js'], {
     cwd: path.join(__dirname, '..'),
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: ENTORNO_SIN_CORREO,
   });
+
+  servidor.stdout.on('data', (trozo) => {
+    salidaServidor += trozo.toString();
+  });
+  servidor.stderr.on('data', (trozo) => {
+    salidaError += trozo.toString();
+  });
+
+  // El hijo puede morir nada mas arrancar (puerto ocupado, base de datos
+  // inaccesible). Sin esto, la prueba seguiria esperando un codigo de 6 digitos
+  // que jamas se emitira y el fallo apareceria como "codigo null" en lugar del
+  // error real que lo Provoco.
+  servidor.on('exit', (codigo, senal) => {
+    hijoMuerto = { codigo, senal };
+  });
+
+  // Fuera del try: la limpieza final (bloque finally) los necesita aunque la
+  // prueba falle a media y salte a la excepcion.
+  const sufijo = Date.now();
+  const credenciales = {
+    usuario: `e2e${sufijo}`,
+    email: `e2e${sufijo}@prueba.test`,
+    password: 'secreto123',
+  };
 
   try {
     // Conexion propia del test a MySQL: sirve para leer la base directamente en los
@@ -80,16 +146,10 @@ async function esperarServidor(intentos = 40) {
       process.exit(1);
     }
 
-    console.log('\n0) Autenticacion: registro, login y sesion obligatoria');
+    console.log('\n0) Autenticacion: alta directa, login y sesion obligatoria');
     const anonimo = await fetch(`${BASE}/lotes`);
     afirmar(anonimo.status === 401, `GET /lotes sin token -> 401 (llego ${anonimo.status})`);
 
-    const sufijo = Date.now();
-    const credenciales = {
-      usuario: `e2e${sufijo}`,
-      email: `e2e${sufijo}@prueba.test`,
-      password: 'secreto123',
-    };
     const json = { 'Content-Type': 'application/json' };
 
     const registro = await pedir('/auth/registro', {
@@ -98,8 +158,20 @@ async function esperarServidor(intentos = 40) {
       body: JSON.stringify(credenciales),
     });
     afirmar(registro.status === 201, `registro -> 201 (llego ${registro.status})`);
-    afirmar(typeof registro.cuerpo.token === 'string', 'el registro devuelve token');
-    afirmar(registro.cuerpo.usuario.usuario === credenciales.usuario, 'devuelve el usuario creado');
+    afirmar(typeof registro.cuerpo.token === 'string', 'el registro devuelve token (acceso directo)');
+    afirmar(registro.cuerpo.usuario?.usuario === credenciales.usuario, 'el registro devuelve el usuario');
+    afirmar(registro.cuerpo.requiereVerificacion === undefined, 'el registro no pide verificacion');
+
+    // La cuenta nace 'activo': no hay codigo de por medio.
+    const alta = await todos('SELECT estado_cuenta FROM usuarios WHERE email = ?', [
+      credenciales.email,
+    ]);
+    afirmar(alta[0].estado_cuenta === 'activo', 'la cuenta nace en estado activo');
+    const codigoLimpio = await todos(
+      'SELECT codigo_verificacion FROM usuarios WHERE email = ?',
+      [credenciales.email]
+    );
+    afirmar(codigoLimpio[0].codigo_verificacion === null, 'no se guarda ningun codigo de verificacion');
 
     const duplicado = await pedir('/auth/registro', {
       method: 'POST',
@@ -115,6 +187,7 @@ async function esperarServidor(intentos = 40) {
     });
     afirmar(loginMalo.status === 401, `clave incorrecta -> 401 (llego ${loginMalo.status})`);
 
+    // El login entrega el token de inmediato: no hay paso de verificacion.
     const login = await pedir('/auth/login', {
       method: 'POST',
       headers: json,
@@ -126,7 +199,36 @@ async function esperarServidor(intentos = 40) {
 
     const me = await pedir('/auth/me');
     afirmar(me.status === 200, `/auth/me -> 200 (llego ${me.status})`);
-    afirmar(me.cuerpo.usuario.usuario === credenciales.usuario, 'la sesion identifica al usuario');
+    afirmar(me.cuerpo.usuario?.usuario === credenciales.usuario, 'la sesion identifica al usuario');
+
+    console.log('\n0b) Los endpoints de codigo estan desactivados');
+    const verificar = await pedir('/auth/verificar-cuenta', {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ email: credenciales.email, codigo: '123456' }),
+    });
+    afirmar(verificar.status === 404, `verificar-cuenta -> 404 (llego ${verificar.status})`);
+
+    const reenviar = await pedir('/auth/reenviar-verificacion', {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ email: credenciales.email }),
+    });
+    afirmar(reenviar.status === 404, `reenviar-verificacion -> 404 (llego ${reenviar.status})`);
+
+    const olvidar = await pedir('/auth/forgot-password', {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ email: credenciales.email }),
+    });
+    afirmar(olvidar.status === 404, `forgot-password -> 404 (llego ${olvidar.status})`);
+
+    const restablecer = await pedir('/auth/restablecer-password', {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ email: credenciales.email, codigo: '123456', password: 'nueva-clave-456' }),
+    });
+    afirmar(restablecer.status === 404, `restablecer-password -> 404 (llego ${restablecer.status})`);
 
     console.log('\n1) POST de un lote valido');
     const post = await pedir('/lotes', {
@@ -270,6 +372,7 @@ async function esperarServidor(intentos = 40) {
       }),
     });
     afirmar(registroB.status === 201, `segundo usuario creado (${registroB.status})`);
+    afirmar(typeof registroB.cuerpo.token === 'string', 'el segundo usuario recibe su sesion');
     const cabeceraB = { Authorization: `Bearer ${registroB.cuerpo.token}` };
 
     const ajeno = await fetch(`${BASE}/lotes/${post.cuerpo.id}`, { headers: cabeceraB });
@@ -277,9 +380,6 @@ async function esperarServidor(intentos = 40) {
 
     const listaB = await (await fetch(`${BASE}/lotes`, { headers: cabeceraB })).json();
     afirmar(Array.isArray(listaB) && listaB.length === 0, 'el segundo usuario arranca con historial vacio');
-
-    // Vuelve la sesion del usuario A para el resto de la prueba.
-    token = registro.cuerpo.token;
 
     console.log('\n5c) PUT actualiza un lote propio y recalcula todo');
     const editado = await pedir(`/lotes/${post.cuerpo.id}`, {
@@ -382,13 +482,26 @@ async function esperarServidor(intentos = 40) {
 
     const borrarFantasma = await pedir('/lotes/999999', { method: 'DELETE' });
     afirmar(borrarFantasma.status === 404, `borrar inexistente -> 404 (llego ${borrarFantasma.status})`);
-
-    // Limpieza final: sin esto cada corrida dejaria dos usuarios de prueba en la base.
-    await ejecutar('DELETE FROM usuarios WHERE usuario IN (?, ?)', [
-      credenciales.usuario,
-      `e2eB${sufijo}`,
-    ]);
+  } catch (err) {
+    // Un fallo a media no debe arrastrar al resto de la prueba sin decir nada:
+    // se imprime el error real, la salida del servidor hijo y se cuenta como
+    // fallo, para que el motivo no se pierda.
+    console.error(`\nError inesperado en la prueba: ${err.message}`);
+    if (salidaServidor.trim()) console.error(`\nSalida del servidor:\n${salidaServidor.trim()}`);
+    if (salidaError.trim()) console.error(`\nErrores del servidor:\n${salidaError.trim()}`);
+    fallos++;
   } finally {
+    // Limpieza final: sin esto cada corrida dejaria dos usuarios de prueba en la
+    // base. Va en el finally para que tambien se limpien si la prueba falla a
+    // media (un usuario a medias dejaba basura en la base).
+    try {
+      await ejecutar('DELETE FROM usuarios WHERE usuario IN (?, ?)', [
+        credenciales.usuario,
+        `e2eB${sufijo}`,
+      ]);
+    } catch (err) {
+      console.error(`No se pudieron borrar los usuarios de prueba: ${err.message}`);
+    }
     servidor.kill();
     await cerrar();
   }

@@ -217,8 +217,10 @@ const ESQUEMA = [
      usuario VARCHAR(30) NOT NULL,
      email VARCHAR(254) NOT NULL,
      password_hash VARCHAR(255) NOT NULL,
-     reset_token VARCHAR(64) NULL,
-     token_expiration DATETIME NULL,
+     estado_cuenta ENUM('pendiente','activo') NOT NULL DEFAULT 'activo',
+     codigo_verificacion VARCHAR(64) NULL,
+     expiracion_codigo DATETIME NULL,
+     codigo_recuperacion VARCHAR(64) NULL,
      creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
      PRIMARY KEY (id),
      UNIQUE KEY uq_usuarios_usuario (usuario),
@@ -319,10 +321,16 @@ const ESQUEMA = [
 // columna y los lotes previos quedarian sin duenio (las consultas filtran por usuario).
 const COLUMNAS_NUEVAS_POR_TABLA = {
   usuarios: [
-    // Recuperacion de contrasena: se guarda el SHA-256 del codigo de 6 digitos
-    // (64 hex, por eso VARCHAR(64)), nunca el codigo en claro, y su caducidad.
-    ['reset_token', 'VARCHAR(64) NULL'],
-    ['token_expiration', 'DATETIME NULL'],
+    // Verificacion de cuenta y recuperacion de contrasena. Se guarda solo el
+    // SHA-256 de los codigos de 6 digitos (64 hex, por eso VARCHAR(64)), nunca
+    // el codigo en claro. DEFAULT 'activo' rellena las cuentas existentes para
+    // que ninguna quede bloqueada al migrar; el registro explicita 'pendiente'.
+    // expiracion_codigo caduca al ultimo codigo emitido (verificacion o
+    // recuperacion): en la practica solo uno de los dos flujos esta en vuelo.
+    ['estado_cuenta', "ENUM('pendiente','activo') NOT NULL DEFAULT 'activo'"],
+    ['codigo_verificacion', 'VARCHAR(64) NULL'],
+    ['expiracion_codigo', 'DATETIME NULL'],
+    ['codigo_recuperacion', 'VARCHAR(64) NULL'],
   ],
   lotes_datos: [['usuario_id', 'INT NULL']],
   tabla_frecuencias: [

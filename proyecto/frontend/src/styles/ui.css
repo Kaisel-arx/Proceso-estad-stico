@@ -405,6 +405,14 @@
   color: var(--exito);
 }
 
+/* Aviso informativo (no es error ni exito): por ejemplo, el aviso de que el
+   servidor no tiene SMTP configurado y el codigo quedo en su consola. */
+.banner-notificacion--aviso {
+  border: 1px solid var(--acento);
+  background: var(--acento-suave);
+  color: var(--texto-tenue);
+}
+
 @keyframes banner-entrada {
   from {
     opacity: 0;

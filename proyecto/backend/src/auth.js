@@ -29,9 +29,9 @@ function verificarPassword(password, hash) {
 
 // El token vive 7 dias. El payload lleva el id en `sub` (convencion JWT) y el nombre de
 // usuario solo para mostrarlo sin volver a consultar la base en cada peticion.
-// `alcance` es opcional y marca tokens emitidos por el flujo de recuperacion de
-// contrasena: dan sesion normal, pero ademas autorizan a restablecer la clave sin
-// volver a pedirla (ver /api/auth/restablecer-password).
+// `alcance` es opcional y marca tokens emitidos con un permiso extra; hoy ningun
+// endpoint lo usa (el flujo de recuperacion por codigo esta en pausa), pero se
+// conserva para que la reactivacion no tenga que tocar la firma.
 function crearToken(usuario, alcance = null) {
   const payload = { sub: usuario.id, usuario: usuario.usuario };
   if (alcance) payload.alcance = alcance;

@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  restablecerContrasena,
-  solicitarCodigoRecuperacion,
-  verificarCodigoRecuperacion,
-} from '../services/api';
+import { restablecerContrasena, solicitarCodigoRecuperacion } from '../services/api';
+import { Banner, Spinner } from './Mensajes';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const CODIGO_RE = /^\d{6}$/;
@@ -52,31 +49,6 @@ const estilos = {
     letterSpacing: '0.42em',
     textIndent: '0.42em',
   },
-  acciones: { display: 'flex', flexDirection: 'column', gap: '0.6rem' },
-  confirmacion: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '0.75rem',
-    padding: '1.1rem 1rem',
-    marginBottom: '1rem',
-    textAlign: 'center',
-    background: 'var(--superficie-2)',
-    border: '1px solid var(--exito)',
-    borderRadius: '14px',
-  },
-  confirmacionIcono: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '2.6rem',
-    height: '2.6rem',
-    borderRadius: '999px',
-    background: 'var(--superficie-3)',
-    color: 'var(--exito)',
-  },
-  confirmacionTexto: { margin: 0, fontSize: '0.86rem', fontWeight: 650, color: 'var(--texto)' },
-  confirmacionDetalle: { margin: 0, fontSize: '0.78rem', color: 'var(--texto-tenue)' },
   pie: {
     margin: '1.1rem 0 0 0',
     textAlign: 'center',
@@ -96,77 +68,29 @@ const estilos = {
   },
 };
 
-/** Icono de tilde para el panel de "codigo verificado". */
-function IconoTilde() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-/** Spinner de carga: anillo en el acento calido de la paleta StatLab. */
-function Spinner() {
-  return <span className="spinner" aria-hidden="true" />;
-}
-
 /**
- * Banner de notificacion con entrada animada, icono y role="alert" para que
- * lector de pantalla lo anuncie. `tipo` = 'error' (rojo) o 'exito' (verde);
- * los colores salen de las variables del tema, asi que respeta el modo
- * claro y oscuro.
- */
-function Banner({ tipo = 'error', children }) {
-  if (!children) return null;
-  return (
-    <p
-      className={`banner-notificacion banner-notificacion--${tipo}`}
-      role={tipo === 'error' ? 'alert' : 'status'}
-    >
-      {tipo === 'error' ? (
-        <svg className="banner-icono" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
-          <circle cx="8" cy="8" r="6.4" />
-          <path d="M8 5v3.6M8 11h.01" />
-        </svg>
-      ) : (
-        <svg className="banner-icono" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="8" cy="8" r="6.4" />
-          <path d="M5.2 8.2 7.1 10l3.7-4" />
-        </svg>
-      )}
-      <span>{children}</span>
-    </p>
-  );
-}
-
-/**
- * Flujo de recuperacion de contrasena en tres pasos:
+ * Flujo de recuperacion de contrasena en dos pasos:
  *  1. correo registrado -> el backend manda un codigo de 6 digitos;
- *  2. codigo -> si es correcto se abre sesion al momento;
- *  3. opcional -> cambiar la contrasena con esa sesion.
+ *  2. codigo + nueva contrasena -> el backend valida, cambia la clave, limpia
+ *     el codigo y entrega la sesion (quien presento el codigo demostro control
+ *     del correo, asi que no hay que escribir la clave dos veces).
  *
- * Quien verifica el codigo ya entra a la aplicacion sin mas pasos: cambiar la
- * clave es una via alternativa, no un obstaculo obligatorio.
+ * Props:
+ *   modo        'smtp' (correo enviado) o 'consola' (sin SMTP: el codigo quedo
+ *               impreso en el log del servidor)
+ *   onVerificar callback para saltar a la pantalla de verificacion cuando la
+ *               cuenta existe pero nunca confirmo su correo
+ *   onVolver    vuelve a la pantalla de inicio de sesion
  */
-function RecuperarContrasena({ onVolver }) {
+function RecuperarContrasena({ modo, onVerificar, onVolver }) {
   const { iniciarSesion: establecerSesion } = useAuth();
   const [paso, setPaso] = useState('correo');
   const [email, setEmail] = useState('');
   const [codigo, setCodigo] = useState('');
   const [password, setPassword] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
-  const [sesionVerificada, setSesionVerificada] = useState(null);
+  const [expiraEnMinutos, setExpiraEnMinutos] = useState(15);
+  const [modoEnvio, setModoEnvio] = useState(modo || null);
   const [error, setError] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [enviando, setEnviando] = useState(false);
@@ -188,10 +112,19 @@ function RecuperarContrasena({ onVolver }) {
     try {
       const respuesta = await solicitarCodigoRecuperacion(email);
       setAviso(respuesta.mensaje);
+      setExpiraEnMinutos(respuesta.expiraEnMinutos || 15);
+      setModoEnvio(respuesta.modo || null);
       setCodigo('');
       setReenviarEn(SEGUNDOS_REENVIO);
       setPaso('codigo');
     } catch (err) {
+      // Un 400 con pendienteVerificacion significa que la cuenta existe pero
+      // nunca confirmo su correo: lo que necesita es verificar, no recuperar
+      // la clave, asi que se ofrece el salto a la pantalla de verificacion.
+      if (err.datos?.pendienteVerificacion && onVerificar) {
+        onVerificar(err.datos.email || email);
+        return;
+      }
       setError(err.message);
     } finally {
       setEnviando(false);
@@ -208,22 +141,7 @@ function RecuperarContrasena({ onVolver }) {
     await pedirCodigo();
   };
 
-  const verificar = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setEnviando(true);
-    try {
-      const sesion = await verificarCodigoRecuperacion({ email, codigo });
-      setSesionVerificada(sesion);
-      setAviso(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  const cambiarContrasena = async (e) => {
+  const restaurar = async (e) => {
     e.preventDefault();
     setError(null);
     if (password !== confirmacion) {
@@ -232,7 +150,9 @@ function RecuperarContrasena({ onVolver }) {
     }
     setEnviando(true);
     try {
-      const sesion = await restablecerContrasena(password, sesionVerificada.token);
+      // El backend valida el codigo, guarda la clave nueva, borra el codigo y
+      // devuelve la sesion: quien la recibe ya esta dentro de StatLab.
+      const sesion = await restablecerContrasena({ email, codigo, password });
       establecerSesion(sesion);
     } catch (err) {
       setError(err.message);
@@ -241,22 +161,19 @@ function RecuperarContrasena({ onVolver }) {
     }
   };
 
-  const volverAlCodigo = () => {
-    setPaso('codigo');
+  const cambiarDeCorreo = () => {
+    setPaso('correo');
     setError(null);
+    setAviso(null);
+    setCodigo('');
     setPassword('');
     setConfirmacion('');
   };
 
-  const pasoActual = paso === 'nueva' ? 3 : paso === 'codigo' ? 2 : 1;
-  const etiquetaPaso = { correo: 'Correo', codigo: 'Código', nueva: 'Nueva contraseña' }[paso];
-
-  const subtitulo =
-    paso === 'correo'
-      ? 'Escribe el correo con el que te registraste y te enviaremos un código de verificación.'
-      : paso === 'codigo'
-        ? `Hemos enviado un código de 6 dígitos a ${email}. Caduca en 10 minutos.`
-        : 'Elige una contraseña nueva. Al guardarla entrarás en StatLab con ella.';
+  const esPasoCorreo = paso === 'correo';
+  const subtitulo = esPasoCorreo
+    ? 'Escribe el correo con el que te registraste y te enviaremos un código de verificación.'
+    : `Hemos enviado un código de 6 dígitos a ${email}. Caduca en ${expiraEnMinutos} minutos.`;
 
   return (
     <div style={estilos.contenedor}>
@@ -264,15 +181,15 @@ function RecuperarContrasena({ onVolver }) {
         <div style={estilos.panel}>
           <p style={estilos.pasos}>
             <span className="chip chip-calido">
-              Paso {pasoActual} de 3
+              Paso {esPasoCorreo ? 1 : 2} de 2
             </span>
-            <span>{etiquetaPaso}</span>
+            <span>{esPasoCorreo ? 'Correo' : 'Código y contraseña'}</span>
           </p>
 
           <h1 style={estilos.titulo}>Recuperar contraseña</h1>
           <p style={estilos.subtitulo}>{subtitulo}</p>
 
-          {paso === 'correo' && (
+          {esPasoCorreo && (
             <form style={estilos.formulario} onSubmit={solicitar}>
               <label className="campo">
                 <span className="campo-etiqueta">Correo electrónico</span>
@@ -307,8 +224,8 @@ function RecuperarContrasena({ onVolver }) {
             </form>
           )}
 
-          {paso === 'codigo' && !sesionVerificada && (
-            <form style={estilos.formulario} onSubmit={verificar}>
+          {!esPasoCorreo && (
+            <form style={estilos.formulario} onSubmit={restaurar}>
               <label className="campo">
                 <span className="campo-etiqueta">Código de verificación</span>
                 <input
@@ -322,78 +239,11 @@ function RecuperarContrasena({ onVolver }) {
                   placeholder="000000"
                   autoFocus
                 />
-                <span className="campo-nota">Solo dígitos. Caduca a los 10 minutos.</span>
+                <span className="campo-nota">
+                  Solo dígitos. Caduca a los {expiraEnMinutos} minutos.
+                </span>
               </label>
 
-              <Banner tipo="error">{error}</Banner>
-              <Banner tipo="exito">{!error && aviso}</Banner>
-
-              <button
-                type="submit"
-                className="btn btn-primario"
-                disabled={enviando || !CODIGO_RE.test(codigo)}
-                style={{ width: '100%', padding: '0.65rem' }}
-              >
-                {enviando ? (
-                  <>
-                    <Spinner />
-                    Comprobando…
-                  </>
-                ) : (
-                  'Verificar código'
-                )}
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-fantasma"
-                onClick={reenviar}
-                disabled={reenviarEn > 0 || enviando}
-              >
-                {enviando && <Spinner />}
-                {reenviarEn > 0 ? `Reenviar código en ${reenviarEn} s` : 'Reenviar código'}
-              </button>
-            </form>
-          )}
-
-          {paso === 'codigo' && sesionVerificada && (
-            <>
-              <div style={estilos.confirmacion}>
-                <span style={estilos.confirmacionIcono}>
-                  <IconoTilde />
-                </span>
-                <p style={estilos.confirmacionTexto}>Código verificado</p>
-                <p style={estilos.confirmacionDetalle}>
-                  Ya puedes entrar a StatLab o, si lo prefieres, cambiar tu contraseña.
-                </p>
-              </div>
-
-              <div style={estilos.acciones}>
-                <button
-                  type="button"
-                  className="btn btn-primario"
-                  onClick={() => establecerSesion(sesionVerificada)}
-                  style={{ width: '100%', padding: '0.65rem' }}
-                >
-                  Entrar a StatLab
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secundario"
-                  onClick={() => {
-                    setPaso('nueva');
-                    setError(null);
-                  }}
-                  style={{ width: '100%', padding: '0.65rem' }}
-                >
-                  Cambiar mi contraseña
-                </button>
-              </div>
-            </>
-          )}
-
-          {paso === 'nueva' && (
-            <form style={estilos.formulario} onSubmit={cambiarContrasena}>
               <label className="campo">
                 <span className="campo-etiqueta">Nueva contraseña</span>
                 <input
@@ -402,7 +252,6 @@ function RecuperarContrasena({ onVolver }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
-                  autoFocus
                 />
                 <span className="campo-nota">Mínimo {PASSWORD_MINIMO} caracteres.</span>
               </label>
@@ -419,12 +268,23 @@ function RecuperarContrasena({ onVolver }) {
               </label>
 
               <Banner tipo="error">{error}</Banner>
+              <Banner tipo="exito">{!error && aviso}</Banner>
+
+              {/* Sin SMTP configurado el codigo queda en la consola del
+                  servidor en vez de enviarse por correo. */}
+              {modoEnvio === 'consola' && (
+                <p className="banner-notificacion banner-notificacion--aviso" role="status">
+                  Modo desarrollo: no hay servidor de correo configurado, así que el código se
+                  imprimió en la consola del servidor en lugar de enviarse.
+                </p>
+              )}
 
               <button
                 type="submit"
                 className="btn btn-primario"
                 disabled={
                   enviando ||
+                  !CODIGO_RE.test(codigo) ||
                   password.length < PASSWORD_MINIMO ||
                   password !== confirmacion
                 }
@@ -436,18 +296,27 @@ function RecuperarContrasena({ onVolver }) {
                     Guardando…
                   </>
                 ) : (
-                  'Guardar y entrar'
+                  'Guardar contraseña y entrar'
                 )}
               </button>
 
-              <button type="button" className="btn btn-fantasma" onClick={volverAlCodigo}>
-                Volver
+              <button
+                type="button"
+                className="btn btn-fantasma"
+                onClick={reenviar}
+                disabled={reenviarEn > 0 || enviando}
+              >
+                {reenviarEn > 0 ? `Reenviar código en ${reenviarEn} s` : 'Reenviar código'}
+              </button>
+
+              <button type="button" className="btn btn-fantasma" onClick={cambiarDeCorreo}>
+                Cambiar de correo
               </button>
             </form>
           )}
 
           <p style={estilos.pie}>
-            {paso === 'correo' ? '¿Ya la recuerdas? ' : '¿Prefieres iniciar sesión? '}
+            {esPasoCorreo ? '¿Ya la recuerdas? ' : '¿Prefieres iniciar sesión? '}
             <button type="button" style={estilos.pieBoton} onClick={onVolver}>
               Volver al inicio de sesión
             </button>

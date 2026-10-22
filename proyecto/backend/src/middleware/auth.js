@@ -21,7 +21,7 @@ async function requerirAutenticacion(req, res, next) {
     return res.status(401).json({ error: 'Sesion invalida o expirada: vuelve a iniciar sesion' });
   }
   // El payload queda a mano para que un endpoint pueda exigir un alcance concreto
-  // (p. ej. el token de recuperacion) sin verificar el JWT otra vez.
+  // sin verificar el JWT otra vez.
   req.payload = payload;
 
   try {

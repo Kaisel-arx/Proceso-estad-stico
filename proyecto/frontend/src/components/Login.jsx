@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { iniciarSesion, registrar } from '../services/api';
-import RecuperarContrasena from './RecuperarContrasena';
 
 const estilos = {
   contenedor: {
@@ -79,25 +78,6 @@ const estilos = {
     padding: 0,
     fontSize: '0.8rem',
     fontWeight: 700,
-    color: 'var(--acento)',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    textDecoration: 'underline',
-    textUnderlineOffset: '3px',
-  },
-  // Enlace de recuperacion: alineado a la derecha bajo el campo de contrasena,
-  // mismo tratamiento tipografico que los enlaces de cambio de vista.
-  olvido: {
-    margin: '-0.35rem 0 0 0',
-    textAlign: 'right',
-    fontSize: '0.78rem',
-    color: 'var(--texto-tenue)',
-  },
-  olvidoBoton: {
-    padding: 0,
-    fontSize: '0.78rem',
-    fontWeight: 650,
     color: 'var(--acento)',
     background: 'transparent',
     border: 'none',
@@ -238,7 +218,12 @@ function IlustracionEstadistica() {
  * Puerta de entrada de la sesion: tarjeta dividida. En modo login el lado
  * izquierdo muestra la identidad visual de StatLab y el derecho el formulario;
  * en modo registro la ilustracion desaparece y el formulario queda centrado.
- * La unica navegacion entre ambas vistas son los enlaces del pie del formulario.
+ *
+ * El acceso es de un solo paso: tanto el login como el registro devuelven la
+ * sesion (token JWT) y la aplicacion entra al panel de inmediato. No hay
+ * pantalla intermedia de verificacion por codigo ni de recuperacion de
+ * contrasena: esas dos rutas (y sus componentes) quedan en pausa mientras el
+ * flujo por correo esta desactivado en el backend.
  */
 function Login() {
   const { iniciarSesion: establecerSesion } = useAuth();
@@ -260,12 +245,24 @@ function Login() {
     e.preventDefault();
     setError(null);
     setEnviando(true);
+    const esLogin = vista === 'login';
     try {
-      const sesion =
-        vista === 'login'
-          ? await iniciarSesion({ identificador: form.identificador, password: form.password })
-          : await registrar({ usuario: form.usuario, email: form.email, password: form.password });
-      establecerSesion(sesion);
+      if (esLogin) {
+        const sesion = await iniciarSesion({
+          identificador: form.identificador,
+          password: form.password,
+        });
+        establecerSesion(sesion);
+      } else {
+        // El registro entrega la sesion directamente: la cuenta se crea activa
+        // y quien se registra entra al panel sin pasos intermedios.
+        const sesion = await registrar({
+          usuario: form.usuario,
+          email: form.email,
+          password: form.password,
+        });
+        establecerSesion(sesion);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -275,12 +272,6 @@ function Login() {
 
   const esLogin = vista === 'login';
   const puedeEnviar = !enviando && form.password && (esLogin ? form.identificador : form.usuario && form.email);
-
-  // Recuperacion de contrasena: vista propia, con la misma tarjeta centrada que
-  // usa el registro (sin ilustracion lateral) y la misma paleta.
-  if (vista === 'recuperar') {
-    return <RecuperarContrasena onVolver={() => cambiarVista('login')} />;
-  }
 
   return (
     <div style={estilos.contenedor}>
@@ -386,18 +377,6 @@ function Login() {
               </div>
               {!esLogin && <span className="campo-nota">Mínimo 6 caracteres.</span>}
             </label>
-
-            {esLogin && (
-              <p style={estilos.olvido}>
-                <button
-                  type="button"
-                  style={estilos.olvidoBoton}
-                  onClick={() => cambiarVista('recuperar')}
-                >
-                  ¿Has olvidado tu contraseña?
-                </button>
-              </p>
-            )}
 
             {error && <p className="alerta alerta-error">{error}</p>}
 

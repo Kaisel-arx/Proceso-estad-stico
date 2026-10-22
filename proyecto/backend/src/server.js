@@ -4,7 +4,6 @@ require('dotenv').config();
 
 const { initDb } = require('./db');
 const { requerirAutenticacion } = require('./middleware/auth');
-const { diagnosticarCorreo } = require('./mailer');
 const datosRoutes = require('./routes/datos.routes');
 const authRoutes = require('./routes/auth.routes');
 
@@ -78,7 +77,12 @@ async function iniciar() {
   // verify() e imprime el error exacto si la configuracion esta mal (clave
   // personal en vez de App Password, puerto caido...), de modo que un fallo
   // de envio se ve aqui y no se descubre cuando alguien pide un codigo.
-  await diagnosticarCorreo();
+  //
+  // Comentado: el flujo de verificacion por codigo esta en pausa y el
+  // despliegue no usa SMTP (ver VERIFICACION_POR_CORREO en src/mailer.js).
+  // Para volver a activarlo, descomenta el require de './mailer' arriba y
+  // esta llamada.
+  // await diagnosticarCorreo();
 
   if (ORIGENES_PERMITIDOS.length > 0) {
     console.log(`CORS: origenes permitidos -> ${ORIGENES_PERMITIDOS.join(', ')}`);
