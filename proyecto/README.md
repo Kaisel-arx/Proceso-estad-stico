@@ -18,6 +18,9 @@ proyecto/
 │   │   └── routes/
 │   │       ├── auth.routes.js     # Registro, login y flujo OTP (en pausa)
 │   │       └── datos.routes.js    # Endpoints para lotes de datos
+│   ├── scripts/
+│   │   ├── actualizar_usuarios.sql # Migración manual de la tabla usuarios (opcional)
+│   │   └── purgar-huerfanos.js      # Borra filas huérfanas de las tablas hijas
 │   ├── .env.example               # Plantilla de variables (DB_HOST, SMTP_HOST, ...)
 │   ├── .gitignore
 │   └── package.json
